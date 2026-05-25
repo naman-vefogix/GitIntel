@@ -20,3 +20,19 @@ class LLMInsightResponseSerializer(serializers.Serializer):
     highlights_of_profile = serializers.CharField()
     recommendation = serializers.CharField()
     confidence = serializers.ChoiceField(choices = ['low', 'medium', 'high'])
+
+class MetricsSerializer(serializers.Serializer):
+    repo_count = serializers.IntegerField()
+    forked_repo_count = serializers.IntegerField()
+    original_repo_count = serializers.IntegerField()
+    total_stars = serializers.IntegerField()
+    top_languages = serializers.DictField(
+        child = serializers.IntegerField()
+    )
+
+class ScoreResponseSerializer(serializers.Serializer):
+    score = serializers.IntegerField()
+
+class LLMInsightScoreRequestSerializer(serializers.Serializer):
+    metrics = MetricsSerializer()
+    repositories = RepositorySerializer(many = True)

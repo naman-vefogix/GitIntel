@@ -1,4 +1,5 @@
 import requests
+from django.shortcuts import render
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -6,9 +7,14 @@ from rest_framework import status
 
 from .serializers import GithubSerializer
 from .services.github_service import extract_username, fetch_repos
-from ai_engine.services.openai_service import generate_insights
+from ai_engine.services.openai_service import generate_insights, score_profile_llm
+from analyzer.services.metrics_service import calculate_metrics
 
 # Create your views here.
+
+
+def home_view(request):
+    return render(request, 'home.html')
 
 class GithubAnalyzerAPIView(APIView):
     def post(self, request):
@@ -45,10 +51,19 @@ class GithubProfileAnalyzeView(APIView):
         github_url = serializer.validated_data['github_url']
         username = extract_username(github_url=github_url)
         repositories = fetch_repos(username=username)
-
+        metrics = calculate_metrics(repositories=repositories)
         llm_payload = {
             'username' : username,
             "repositories" : repositories
         } 
         insights = generate_insights(llm_payload)
-        return Response(insights)
+        score_payload = {
+            "metrics" : metrics,
+            "repositories" : repositories
+        }
+        score = score_profile_llm(score_payload)
+        return Response({
+            "profile_score" : score,
+            "insights" : insights
+        })
+    

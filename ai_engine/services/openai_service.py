@@ -2,7 +2,7 @@ import json
 from openai import OpenAI
 from decouple import config
 
-from ai_engine.serializers import  (LLMInsightRequestSerializer, LLMInsightResponseSerializer)
+from ai_engine.serializers import  (LLMInsightRequestSerializer, LLMInsightResponseSerializer, LLMInsightScoreRequestSerializer, ScoreResponseSerializer)
 
 openai_api_key = config("OPENAI_API_KEY")
 openai_client = OpenAI(api_key=openai_api_key)
@@ -122,4 +122,87 @@ def generate_insights(request_data):
       "confidence":"low"
     }
 
+    return fallback_response
+  
+def score_profile_llm(request_data):
+
+  serializer = LLMInsightScoreRequestSerializer(data = request_data)
+  if not serializer.is_valid():
+    return {'errors' : serializer.errors}
+
+  data = serializer.validated_data
+
+  SYSTEM_PROMPT = '''
+  You are a senior technical recruiter and evaluating a github profile.
+  Apply the following rules strictly.
+
+  RULES :
+  - Never exceed total score of 100.
+  - Never return negative values.
+
+  SCORING_RULES (100): 
+
+  - Project Quality (0-50)
+  1. Naming Quality
+  2. Description Quality
+  3. Topic Relevance
+  4. Project Originality
+
+  METRICS SCORING (0-50)
+
+  1. Repository Count
+  - >= 15 repos → strong
+  - 8-14 repos → moderate
+  - < 5 repos → weak
+
+  2. Original Repository Ratio
+  - Mostly original repos → high score
+  - Mostly forks → low score
+
+  3. Language Diversity
+  - 2-5 meaningful languages → good
+  - Only 1 language → moderate
+
+  4. Total Stars
+  - Higher stars indicate validation
+  - 0 stars across all repos reduces score slightly
+
+  RETURN FORMAT :
+  {
+  'score' : 80
+  }
+
+  EXAMPLE RESULTS: 
+  {
+  'score' : 80
+  }
+
+  {
+  'score' : 90
+  }
+
+  '''
+  user_prompt = f'''
+  Analyze from the following metrics and repositories from GitHub profile data of the user : "metrices : {data['metrics']} , repositories : {data['repositories']}":
+  {json.dumps(data, indent=2)}
+  '''
+  response = openai_client.chat.completions.create(
+    model="gpt-5.4-mini",
+    messages=[
+      {"role": "system", "content": SYSTEM_PROMPT},
+      {"role": "user", "content": user_prompt},
+    ],
+  )
+
+  content = response.choices[0].message.content
+  try:
+    score_dict = json.loads(content)
+    response_serializer = ScoreResponseSerializer(data=score_dict)
+    if response_serializer.is_valid():
+      return response_serializer.data
+    return {"error": response_serializer.errors}
+  except Exception:
+    fallback_response = {
+      "score" : 0
+    }
     return fallback_response

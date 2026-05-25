@@ -1,0 +1,168 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>GitIntel</title>
+</head>
+<body>
+
+    <h1>GitIntel</h1>
+
+    <form id="analyze-form">
+
+        <input
+            type="text"
+            id="username"
+            placeholder="Enter GitHub username"
+        >
+
+        <button type="submit">
+            Analyze
+        </button>
+
+    </form>
+
+    <div id="loading"></div>
+
+    <div id="results"></div>
+
+    <script>
+
+        document
+        .getElementById('analyze-form')
+
+        .addEventListener(
+            'submit',
+
+            async function(e){
+
+                e.preventDefault()
+
+                const username =
+                    document.getElementById(
+                        'username'
+                    ).value
+
+                document
+                .getElementById('loading')
+                .innerHTML = `
+                    <p>Analyzing...</p>
+                `
+
+                const response =
+                    await fetch(
+                        'insights/',
+                        {
+                            method: 'POST',
+
+                            headers: {
+                                'Content-Type':
+                                    'application/json',
+
+                                'X-CSRFToken':
+                                    getCSRFToken()
+                            },
+
+                            body: JSON.stringify({
+                                github_url:
+                                `https://github.com/${username}`
+                            })
+                        }
+                    )
+
+                const data =
+                    await response.json()
+
+                document
+                .getElementById('loading')
+                .innerHTML = ''
+
+                document
+                .getElementById('results')
+                .innerHTML = `
+
+                    <h2>
+                        Profile Score:
+                        ${data.profile_score.score}
+                    </h2>
+
+                    <h3>
+                        Developer Type
+                    </h3>
+
+                    <p>
+                        ${data.insights.developer_type}
+                    </p>
+
+                    <h3>
+                        Summary
+                    </h3>
+
+                    <p>
+                        ${data.insights.summary}
+                    </p>
+
+                    <h3>
+                        Strengths
+                    </h3>
+
+                    <ul>
+                        ${data.insights.strengths
+                        .map(
+                            item =>
+                            `<li>${item}</li>`
+                        )
+                        .join('')
+                        }
+                    </ul>
+
+                    <h3>
+                        Weaknesses
+                    </h3>
+
+                    <ul>
+                        ${data.insights.weaknesses
+                        .map(
+                            item =>
+                            `<li>${item}</li>`
+                        )
+                        .join('')
+                        }
+                    </ul>
+
+                    <h3>
+                        highlights_of_profile
+                    </h3>
+
+                    <p>
+                        ${data.insights.highlights_of_profile}
+                    </p>
+
+                    <h3> Recommendation </h3>
+                    <p> ${data.insights.recommendation} </p>
+                    
+                    <h3> Confidence </h3>
+                    <p> ${data.insights.confidence} </p>
+                `
+            }
+        )
+
+        function getCSRFToken(){
+
+            return document
+                .cookie
+                .split('; ')
+                .find(row =>
+                    row.startsWith('csrftoken=')
+                )
+                ?.split('=')[1]
+        }
+
+    </script>
+
+</body>
+</html>
