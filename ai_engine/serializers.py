@@ -7,7 +7,16 @@ class RepositorySerializer(serializers.Serializer):
     stargazers_count = serializers.IntegerField()
     topics = serializers.ListField(child = serializers.CharField(), required = False)
 
-
 class LLMInsightRequestSerializer(serializers.Serializer):
     username = serializers.CharField()
     repositories = RepositorySerializer(many = True)
+
+class LLMInsightResponseSerializer(serializers.Serializer):
+    developer_type = serializers.CharField()
+    experience_signal = serializers.CharField()
+    summary = serializers.CharField()
+    strengths = serializers.ListField(child = serializers.CharField())
+    weaknesses = serializers.ListField(child = serializers.CharField())
+    highlights_of_profile = serializers.CharField()
+    recommendation = serializers.CharField()
+    confidence = serializers.ChoiceField(choices = ['low', 'medium', 'high'])

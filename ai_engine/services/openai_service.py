@@ -1,15 +1,23 @@
 import json
-from openai import AsyncOpenAI
+from openai import OpenAI
 from decouple import config
 
+from ai_engine.serializers import  (LLMInsightRequestSerializer, LLMInsightResponseSerializer)
+
 openai_api_key = config("OPENAI_API_KEY")
-openai_client = AsyncOpenAI(api_key=openai_api_key)
+openai_client = OpenAI(api_key=openai_api_key)
 if not openai_api_key:
   raise ValueError("Missing OPENAI_API_KEY env var.")
 
-openai_client = AsyncOpenAI(api_key=openai_api_key)
+openai_client = OpenAI(api_key=openai_api_key)
 
-async def generate_insights(data: LLMInsightRequest) -> InsightResponse:
+def generate_insights(request_data):
+
+  serializer = LLMInsightRequestSerializer(data = request_data)
+  if not serializer.is_valid():
+    return {'errors' : serializer.errors}
+  data = serializer.validated_data
+
   system_prompt = '''
   You are a senior technical recruiter.
   Analyze the developer strictly based on the provided data and return ONLY valid JSON.
@@ -81,12 +89,13 @@ async def generate_insights(data: LLMInsightRequest) -> InsightResponse:
   }
   
   '''
+
   user_prompt = f'''
-  Analyze the following GitHub profile data for the user : "{data.username}":
-  {data.model_dump_json(indent=2)}
+  Analyze the following GitHub profile data for the user : "{data['username']}":
+  {json.dumps(data, indent=2)}
   '''
 
-  response = await openai_client.chat.completions.create(
+  response = openai_client.chat.completions.create(
     model="gpt-5.4-mini",
     messages=[
       {"role": "system", "content": system_prompt},
@@ -97,15 +106,20 @@ async def generate_insights(data: LLMInsightRequest) -> InsightResponse:
   content = response.choices[0].message.content
   try:
     insights_dict = json.loads(content)
-    return InsightResponse(**insights_dict)
+    response_serializer = LLMInsightResponseSerializer(data=insights_dict)
+    if response_serializer.is_valid():
+      return response_serializer.data
+    return {"error": response_serializer.errors}
   except Exception:
-    return InsightResponse(
-      developer_type="Unknown",
-      experience_signal="Unknown",
-      summary="Unable to generate insights due to API error",
-      strengths=[],
-      weaknesses=[],
-      highlights_of_profile="Unable to generate insights due to API error",
-      recommendation="Check API configuration",
-      confidence="low",
-    )
+    fallback_response = {
+      "developer_type":"Unknown",
+      "experience_signal":"Unknown",
+      "summary":"Unable to generate insights due to API error",
+      "strengths":[],
+      "weaknesses":[],
+      "highlights_of_profile":"Unable to generate insights due to API error",
+      "recommendation":"Check API configuration",
+      "confidence":"low"
+    }
+
+    return fallback_response
